@@ -191,7 +191,7 @@ bool match(const char *str, const char* regexStr) {
 
     const char *startPos = str;
 
-    while (*startPos) {
+    while (true) {
         State *state = createState(start, startPos);
         const char *p = state->p;
 
@@ -239,6 +239,11 @@ bool match(const char *str, const char* regexStr) {
         }
         
     NOT_MATCH:
+        
+        if (!*startPos) {
+            break;
+        }
+        
         startPos++;
     }
 
@@ -248,15 +253,65 @@ bool match(const char *str, const char* regexStr) {
 
 
 int main(int argc, const char * argv[]) {
+    assert(!match("", "a"));
     assert(match("a", "a"));
     assert(!match("b", "a"));
 
     assert(!match("a", "ab"));
     assert(!match("b", "ab"));
     assert(match("ab", "ab"));
+    assert(!match("ac", "ab"));
     assert(match("abc", "ab"));
     assert(match("cab", "ab"));
+    assert(match("cabd", "ab"));
+    assert(match("aabd", "ab"));
+    assert(!match("caed", "ab"));
+    assert(!match("aaed", "ab"));
 
+    // +
+    assert(!match("", "a+"));
+    assert(match("a", "a+"));
+    assert(!match("b", "a+"));
+
+    assert(!match("a", "a+b"));
+    assert(!match("b", "a+b"));
+    assert(match("ab", "a+b"));
+    assert(!match("ac", "a+b"));
+    assert(match("abc", "a+b"));
+    assert(match("cab", "a+b"));
+    assert(match("cabd", "a+b"));
+    assert(match("aabd", "a+b"));
+    assert(!match("caed", "a+b"));
+    assert(!match("aaed", "a+b"));
+
+    assert(!match("a", "ab+"));
+    assert(!match("b", "ab+"));
+    assert(match("ab", "ab+"));
+    assert(!match("ac", "ab+"));
+    assert(match("abc", "ab+"));
+    assert(match("cab", "ab+"));
+    assert(match("cabd", "ab+"));
+    assert(match("aabd", "ab+"));
+    assert(!match("caed", "ab+"));
+    assert(!match("aaed", "ab+"));
+
+    assert(!match("a", "a+b+"));
+    assert(!match("b", "a+b+"));
+    assert(match("ab", "a+b+"));
+    assert(!match("ac", "a+b+"));
+    assert(match("abc", "a+b+"));
+    assert(match("cab", "a+b+"));
+    assert(match("cabd", "a+b+"));
+    assert(match("aabd", "a+b+"));
+    assert(!match("caed", "a+b+"));
+    assert(!match("aaed", "a+b+"));
+
+    // *
+    assert(match("", "a*"));
+    assert(match("a", "a*"));
+    assert(match("b", "a*"));
+    
+    
     
     return 0;
 }
