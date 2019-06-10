@@ -189,54 +189,60 @@ bool match(const char *str, const char* regexStr) {
     }
     findTail(r.tail)->next = createNode(MATCH, NULL, 0, NULL);
 
-    char *p = str;
-    State *state = createState(start, p);
+    const char *startPos = str;
 
-    while (true) {
-        Node* node = state->node;
-        switch (node->type) {
-            case MATCH:
-                return true;
-            case EPSILON:
-                state->node = node->next;
-                continue;
-            case BRANCH:
-                state->node = node->next;
-                pushState(createState(node->subNode, p));
-                continue;
-                
-            case CHAR:
-                if (*p == node->c) {
-                    p++;
+    while (*startPos) {
+        State *state = createState(start, startPos);
+        const char *p = state->p;
+
+        while (true) {
+            Node* node = state->node;
+            switch (node->type) {
+                case MATCH:
+                    free(state);
+                    return true;
+                case EPSILON:
                     state->node = node->next;
                     continue;
-                } else {
-                    state = popState();
-                    if (!state) {
-                        return false;
-                    }
-                    continue;
-                }
-            case ANYCHAR:
-                if (*p != '\0') {
-                    p++;
+                case BRANCH:
                     state->node = node->next;
+                    pushState(createState(node->subNode, p));
                     continue;
-                } else {
-                    state = popState();
-                    if (!state) {
-                        return false;
+                    
+                case CHAR:
+                    if (*p == node->c) {
+                        p++;
+                        state->node = node->next;
+                        continue;
+                    } else {
+                        free(state);
+                        state = popState();
+                        if (!state) {
+                            goto NOT_MATCH;
+                        }
+                        continue;
                     }
-                    continue;
-                }
-            default:
-                break;
-                
+                case ANYCHAR:
+                    if (*p != '\0') {
+                        p++;
+                        state->node = node->next;
+                        continue;
+                    } else {
+                        free(state);
+                        state = popState();
+                        if (!state) {
+                            goto NOT_MATCH;
+                        }
+                        continue;
+                    }
+            }
         }
+        
+    NOT_MATCH:
+        startPos++;
     }
-    
-    
-    return true;
+
+    return false;
 }
 
 
@@ -245,6 +251,13 @@ int main(int argc, const char * argv[]) {
     assert(match("a", "a"));
     assert(!match("b", "a"));
 
+    assert(!match("a", "ab"));
+    assert(!match("b", "ab"));
+    assert(match("ab", "ab"));
+    assert(match("abc", "ab"));
+    assert(match("cab", "ab"));
+
+    
     return 0;
 }
 
