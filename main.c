@@ -44,13 +44,12 @@ Node* createNode(NodeType type, Node* next, char c, Node* subNode) {
 }
 
 void releaseNodes() {
-    Node* node = gNodes;
     Node* next;
     do {
-        next = node->linkListNext;
-        free(node);
-        node = next;
-    } while(node);
+        next = gNodes->linkListNext;
+        free(gNodes);
+        gNodes = next;
+    } while(gNodes);
 }
 
 typedef struct ParseResult {
@@ -74,7 +73,7 @@ ParseResult parseRegexStr(const char* p, Node* head, Node **tail) {
         case '(':
         {
             Node* node = createNode(EPSILON, NULL, 0, NULL);
-            ParseResult r = parseRegexStr(p+1, node, &node->next);
+            ParseResult r = parseRegexStr(p+1, node, &node);
             
             Node** next = &findTail(*tail)->next;
             *next = r.head;
@@ -94,14 +93,14 @@ ParseResult parseRegexStr(const char* p, Node* head, Node **tail) {
             Node* node = createNode(EPSILON, NULL, 0, NULL);
             ParseResult r = parseRegexStr(p+1, node, &node);
             
-            Node* branch = createNode(BRANCH, *tail, 0, node);
+            Node* branch = createNode(BRANCH, head, 0, r.head);
             
             Node* branchEnd = createNode(EPSILON, NULL, 0, NULL);
             findTail(*tail)->next = branchEnd;
             findTail(r.tail)->next = branchEnd;
-            *tail = branch;
+            //*tail = branchEnd;
             
-            return createParseResult(r.p, head, branchEnd);
+            return createParseResult(r.p, branch, branchEnd);
         }
             
         case '+':
@@ -186,39 +185,48 @@ State* popState() {
     return state;
 }
 
+void clearStateStack() {
+    State *state;
+    while((state = popState())) {
+        free(state);
+    }
+}
+
 bool match(const char *str, const char* regexStr) {
     
-    Node* start = createNode(EPSILON, NULL, 0, NULL);
-    ParseResult r = parseRegexStr(regexStr, start, &start);
+    Node* node = createNode(EPSILON, NULL, 0, NULL);
+    ParseResult r = parseRegexStr(regexStr, node, &node);
     if (r.p == 0) {
         // エラー
         return false;
     }
     findTail(r.tail)->next = createNode(MATCH, NULL, 0, NULL);
+    Node* start = r.head;
 
     const char *startPos = str;
 
     while (true) {
         State *state = createState(start, startPos);
-        const char *p = state->p;
-
+        
         while (true) {
             Node* node = state->node;
             switch (node->type) {
                 case MATCH:
                     free(state);
+                    clearStateStack();
+                    releaseNodes();
                     return true;
                 case EPSILON:
                     state->node = node->next;
                     continue;
                 case BRANCH:
                     state->node = node->next;
-                    pushState(createState(node->subNode, p));
+                    pushState(createState(node->subNode, state->p));
                     continue;
                     
                 case CHAR:
-                    if (*p == node->c) {
-                        p++;
+                    if (*(state->p) == node->c) {
+                        state->p++;
                         state->node = node->next;
                         continue;
                     } else {
@@ -230,8 +238,8 @@ bool match(const char *str, const char* regexStr) {
                         continue;
                     }
                 case ANYCHAR:
-                    if (*p != '\0') {
-                        p++;
+                    if (*(state->p) != '\0') {
+                        state->p++;
                         state->node = node->next;
                         continue;
                     } else {
@@ -254,10 +262,10 @@ bool match(const char *str, const char* regexStr) {
         startPos++;
     }
 
+    clearStateStack();
+    releaseNodes();
     return false;
 }
-
-
 
 int main(int argc, const char * argv[]) {
     assert(!match("", "a"));
@@ -365,12 +373,36 @@ int main(int argc, const char * argv[]) {
     // |
     assert(match("a", "a|b"));
     assert(match("b", "a|b"));
-    assert(match("c", "a|b"));
+    assert(!match("c", "a|b"));
     assert(!match("a", "ab|cd"));
     assert(match("ab", "ab|cd"));
     assert(match("cd", "ab|cd"));
 
+    // ()
+    assert(match("abc", "a(bc)+"));
+    assert(!match("abc", "a(bc)+d"));
+    assert(match("abcd", "a(bc)+d"));
+    assert(match("abcbcd", "a(bc)+d"));
+
+    assert(match("abcf", "a(bc|de)f"));
+    assert(match("adef", "a(bc|de)f"));
+    assert(!match("abcdf", "a(bc|de)f"));
+    assert(!match("adegf", "a(bc|de)f"));
     
+    assert(match("abch", "a(bc|de|fg)h"));
+    assert(match("adeh", "a(bc|de|fg)h"));
+    assert(match("afgh", "a(bc|de|fg)h"));
+
+    assert(match("abh", "a(bc*|de*|fg*)h"));
+    assert(match("abch", "a(bc*|de*|fg*)h"));
+    assert(match("abcch", "a(bc*|de*|fg*)h"));
+    assert(match("adh", "a(bc*|de*|fg*)h"));
+    assert(match("adeh", "a(bc*|de*|fg*)h"));
+    assert(match("adeeh", "a(bc*|de*|fg*)h"));
+    assert(match("afh", "a(bc*|de*|fg*)h"));
+    assert(match("afgh", "a(bc*|de*|fg*)h"));
+    assert(match("afggh", "a(bc*|de*|fg*)h"));
+
     return 0;
 }
 
