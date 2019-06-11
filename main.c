@@ -92,7 +92,7 @@ ParseResult parseRegexStr(const char* p, Node* head, Node **tail) {
             // -->     o --> o --> o
         {
             Node* node = createNode(EPSILON, NULL, 0, NULL);
-            ParseResult r = parseRegexStr(p+1, node, &node->next);
+            ParseResult r = parseRegexStr(p+1, node, &node);
             
             Node* branch = createNode(BRANCH, *tail, 0, node);
             
@@ -361,6 +361,14 @@ int main(int argc, const char * argv[]) {
     assert(match("ab", ".+"));
     assert(match("", ".*"));
     assert(match("a", ".*"));
+
+    // |
+    assert(match("a", "a|b"));
+    assert(match("b", "a|b"));
+    assert(match("c", "a|b"));
+    assert(!match("a", "ab|cd"));
+    assert(match("ab", "ab|cd"));
+    assert(match("cd", "ab|cd"));
 
     
     return 0;
