@@ -65,6 +65,66 @@ ParseResult createParseResult(const char* p, Node* head, Node* tail) {
     return r;
 }
 
+// [...]のパース
+ParseResult parseBracketRegexStr(const char* p) {
+    
+    Node *tail = createNode(EPSILON, NULL, 0, NULL);
+    Node *head = NULL;
+    Node **branchTail = NULL;
+
+    while(true) {
+        char c = *p;
+        switch (c) {
+            case ']':
+                if (head == NULL) {
+                    return createParseResult(0, NULL, NULL);
+                }
+                p++;
+
+                return createParseResult(p, head, tail);
+                
+            default:
+            {
+                if ((c >= 'a' && c <= 'z') ||
+                    (c >= 'A' && c <= 'Z') ||
+                    (c >= '0' && c <= '9'))
+                {
+                    p++;
+                    if (*p == '-') {
+                        p++;
+                        char c2 = *p;
+                        if (c2 == '-' || c2 == ']' || c2 == c) {
+                            return createParseResult(0, NULL, NULL);
+                        }
+                        for (char i = c; i <= c2; i++) {
+                            Node *n = createNode(CHAR, tail, i, NULL);
+                            if (head) {
+                                Node *b = createNode(BRANCH, *branchTail, 0, n);
+                                *branchTail = b;
+                                branchTail = &(b->subNode);
+                            } else {
+                                head = n;
+                                branchTail = &head;
+                            }
+                        }
+                    } else {
+                        Node *n = createNode(CHAR, tail, c, NULL);
+                        if (head) {
+                            Node *b = createNode(BRANCH, *branchTail, 0, n);
+                            *branchTail = b;
+                            branchTail = &(b->subNode);
+                        } else {
+                            head = n;
+                            branchTail = &head;
+                        }
+                    }
+                }
+                break;
+            }
+        }
+    }
+}
+
 ParseResult parseRegexStr(const char* p, Node* head, Node **tail) {
     char c = *p;
     
@@ -77,6 +137,10 @@ ParseResult parseRegexStr(const char* p, Node* head, Node **tail) {
             Node* node = createNode(EPSILON, NULL, 0, NULL);
             ParseResult r = parseRegexStr(p+1, node, &node);
             
+            if (r.p == 0) {
+                return r;
+            }
+            
             Node** next = &findTail(*tail)->next;
             *next = r.head;
             return parseRegexStr(r.p, head, next);
@@ -84,6 +148,14 @@ ParseResult parseRegexStr(const char* p, Node* head, Node **tail) {
         
         case ')':
             return createParseResult(p+1, head, findTail(*tail));
+
+        case '[':
+        {
+            ParseResult r = parseBracketRegexStr(p+1);
+            findTail(*tail)->next = r.head;
+            
+            return createParseResult(r.p, head, r.tail);
+        }
 
         case '|':
             // A|B
@@ -94,6 +166,10 @@ ParseResult parseRegexStr(const char* p, Node* head, Node **tail) {
         {
             Node* node = createNode(EPSILON, NULL, 0, NULL);
             ParseResult r = parseRegexStr(p+1, node, &node);
+            
+            if (r.p == 0) {
+                return r;
+            }
             
             Node* branch = createNode(BRANCH, head, 0, r.head);
             
@@ -312,6 +388,7 @@ bool match(const char *str, const char* regexStr) {
 }
 
 int test() {
+    
     assert(!match("", "a"));
     assert(match("a", "a"));
     assert(!match("b", "a"));
@@ -447,8 +524,25 @@ int test() {
     assert(match("afgh", "a(bc*|de*|fg*)h"));
     assert(match("afggh", "a(bc*|de*|fg*)h"));
 
+    // ^, $
     assert(match("a", "^a$"));
     
+    // [...]
+    assert(match("a", "[a]"));
+    assert(!match("b", "[a]"));
+    assert(match("a", "[ab]"));
+    assert(match("b", "[ab]"));
+    assert(match("a", "[a-c]"));
+    assert(match("b", "[a-c]"));
+    assert(match("c", "[a-c]"));
+    assert(match("abe", "a[b-d]e"));
+    assert(match("ace", "a[b-d]e"));
+    assert(match("ade", "a[b-d]e"));
+    assert(match("ade", "a[b-d]+"));
+    assert(match("abe", "a[b-d]+[e-g]+"));
+    assert(match("acf", "a[b-d]+[e-g]+"));
+    assert(match("adg", "a[b-d]+[e-g]+"));
+
     return 0;
 }
 
