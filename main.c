@@ -267,7 +267,7 @@ bool match(const char *str, const char* regexStr) {
     return false;
 }
 
-int main(int argc, const char * argv[]) {
+int test() {
     assert(!match("", "a"));
     assert(match("a", "a"));
     assert(!match("b", "a"));
@@ -406,3 +406,20 @@ int main(int argc, const char * argv[]) {
     return 0;
 }
 
+int main(int argc, const char * argv[]) {
+    
+    
+    if (argc < 2) {
+        printf("run test\n");
+        test();
+        return 0;
+    }
+    const char* regex = argv[1];
+    
+    char buffer[200];
+    while ((fgets(buffer, 200, stdin))) {
+        if (match(buffer, regex)) {
+            printf("%s", buffer);
+        }
+    }
+}
