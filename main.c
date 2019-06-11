@@ -132,6 +132,13 @@ ParseResult parseRegexStr(const char* p, Node* head, Node **tail) {
             return parseRegexStr(p+1, head, next);
 
         }
+        case '.':
+        {
+            Node* node = createNode(ANYCHAR, NULL, c, NULL);
+            Node** next = &findTail(*tail)->next;
+            *next = node;
+            return parseRegexStr(p+1, head, next);
+        }
         default:
         {
             if ((c >= 'a' && c <= 'z') ||
@@ -257,6 +264,7 @@ int main(int argc, const char * argv[]) {
     assert(match("a", "a"));
     assert(!match("b", "a"));
 
+    assert(!match("", "ab"));
     assert(!match("a", "ab"));
     assert(!match("b", "ab"));
     assert(match("ab", "ab"));
@@ -311,7 +319,49 @@ int main(int argc, const char * argv[]) {
     assert(match("a", "a*"));
     assert(match("b", "a*"));
     
-    
+    assert(!match("", "a*b"));
+    assert(!match("a", "a*b"));
+    assert(match("b", "a*b"));
+    assert(match("ab", "a*b"));
+    assert(match("aab", "a*b"));
+    assert(match("aaab", "a*b"));
+    assert(match("baab", "a*b"));
+    assert(match("caab", "a*b"));
+    assert(match("cb", "a*b"));
+    assert(match("cbd", "a*b"));
+
+    assert(!match("", "ab*"));
+    assert(match("a", "ab*"));
+    assert(match("ab", "ab*"));
+    assert(match("aab", "ab*"));
+    assert(match("aaab", "ab*"));
+    assert(match("baab", "ab*"));
+    assert(match("baabb", "ab*"));
+    assert(match("baabc", "ab*"));
+
+    assert(!match("", "ab*c"));
+    assert(!match("a", "ab*c"));
+    assert(!match("b", "ab*c"));
+    assert(!match("c", "ab*c"));
+    assert(!match("ab", "ab*c"));
+    assert(match("ac", "ab*c"));
+    assert(match("abc", "ab*c"));
+    assert(match("abbc", "ab*c"));
+    assert(match("dac", "ab*c"));
+    assert(match("dabc", "ab*c"));
+    assert(match("dabbc", "ab*c"));
+
+    // .
+    assert(!match("", "."));
+    assert(match("a", "."));
+    assert(match("b", "."));
+    assert(!match("", ".+"));
+    assert(match("a", ".+"));
+    assert(match("aa", ".+"));
+    assert(match("ab", ".+"));
+    assert(match("", ".*"));
+    assert(match("a", ".*"));
+
     
     return 0;
 }
