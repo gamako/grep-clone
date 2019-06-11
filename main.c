@@ -8,6 +8,8 @@ typedef enum NodeType {
     BRANCH,
     CHAR,
     ANYCHAR,
+    LINE_HEAD,
+    LINE_TAIL,
     MATCH, // ゴール
 } NodeType;
 
@@ -138,6 +140,20 @@ ParseResult parseRegexStr(const char* p, Node* head, Node **tail) {
             *next = node;
             return parseRegexStr(p+1, head, next);
         }
+        case '^':
+        {
+            Node* node = createNode(LINE_HEAD, NULL, c, NULL);
+            Node** next = &findTail(*tail)->next;
+            *next = node;
+            return parseRegexStr(p+1, head, next);
+        }
+        case '$':
+        {
+            Node* node = createNode(LINE_TAIL, NULL, c, NULL);
+            Node** next = &findTail(*tail)->next;
+            *next = node;
+            return parseRegexStr(p+1, head, next);
+        }
         default:
         {
             if ((c >= 'a' && c <= 'z') ||
@@ -161,13 +177,15 @@ ParseResult parseRegexStr(const char* p, Node* head, Node **tail) {
 typedef struct State {
     Node *node;
     const char* p;
+    bool isHead;
     struct State *prev; // stackに積むためのリンク
 } State;
 
-State* createState(Node *node, const char* p) {
+State* createState(Node *node, const char* p, bool isHead) {
     State* state = (State*)malloc(sizeof(State));
     state->node = node;
     state->p = p;
+    state->isHead = isHead;
     
     return state;
 }
@@ -204,9 +222,10 @@ bool match(const char *str, const char* regexStr) {
     Node* start = r.head;
 
     const char *startPos = str;
+    bool isHead = true;
 
     while (true) {
-        State *state = createState(start, startPos);
+        State *state = createState(start, startPos, isHead);
         
         while (true) {
             Node* node = state->node;
@@ -221,7 +240,7 @@ bool match(const char *str, const char* regexStr) {
                     continue;
                 case BRANCH:
                     state->node = node->next;
-                    pushState(createState(node->subNode, state->p));
+                    pushState(createState(node->subNode, state->p, state->isHead));
                     continue;
                     
                 case CHAR:
@@ -250,6 +269,30 @@ bool match(const char *str, const char* regexStr) {
                         }
                         continue;
                     }
+                case LINE_HEAD:
+                    if (state->isHead) {
+                        state->node = node->next;
+                        continue;
+                    } else {
+                        free(state);
+                        state = popState();
+                        if (!state) {
+                            goto NOT_MATCH;
+                        }
+                        continue;
+                    }
+                case LINE_TAIL:
+                    if (*(state->p) == '\0') {
+                        state->node = node->next;
+                        continue;
+                    } else {
+                        free(state);
+                        state = popState();
+                        if (!state) {
+                            goto NOT_MATCH;
+                        }
+                        continue;
+                    }
             }
         }
         
@@ -260,6 +303,7 @@ bool match(const char *str, const char* regexStr) {
         }
         
         startPos++;
+        isHead = false;
     }
 
     clearStateStack();
@@ -403,6 +447,8 @@ int test() {
     assert(match("afgh", "a(bc*|de*|fg*)h"));
     assert(match("afggh", "a(bc*|de*|fg*)h"));
 
+    assert(match("a", "^a$"));
+    
     return 0;
 }
 
